@@ -1,0 +1,138 @@
+Complete Docker Swarm deployment commands:
+
+```bash
+# Login to manager VM
+vagrant ssh manager-vm
+```
+
+```bash
+# Check Docker installation
+docker --version
+```
+
+```bash
+# Add vagrant user to docker group
+sudo usermod -aG docker vagrant
+```
+
+```bash
+# Exit and reconnect
+exit
+vagrant ssh manager-vm
+```
+
+```bash
+# Verify docker access
+groups
+docker ps
+```
+
+```bash
+# Pull application image
+docker pull vijay14082003/vijaychowdarykube:v1
+```
+
+```bash
+# Initialize Docker Swarm manager
+docker swarm init --advertise-addr 192.168.56.10
+```
+
+```bash
+# Get worker join token
+docker swarm join-token worker
+```
+
+```bash
+# Join worker1 and worker2 nodes
+docker swarm join --token <worker-token> 192.168.56.10:2377
+```
+
+```bash
+# Check swarm nodes
+docker node ls
+```
+
+```bash
+# Check Docker images
+docker images
+```
+
+```bash
+# Create Swarm service
+docker service create \
+--name vijaychowdarykube \
+-p 8080:8080 \
+vijay14082003/vijaychowdarykube:v1
+```
+
+```bash
+# List services
+docker service ls
+```
+
+```bash
+# Check service details
+docker service inspect vijaychowdarykube
+```
+
+```bash
+# Check service tasks
+docker service ps vijaychowdarykube
+```
+
+```bash
+# View service logs
+docker service logs vijaychowdarykube
+```
+
+```bash
+# Check running containers
+docker ps
+```
+
+```bash
+# View nodes
+docker node ls
+```
+
+```bash
+# Scale application
+docker service scale vijaychowdarykube=3
+```
+
+```bash
+# Verify replicas
+docker service ls
+```
+
+```bash
+# Update service image
+docker service update \
+--image vijay14082003/vijaychowdarykube:v1 \
+vijaychowdarykube
+```
+
+```bash
+# Rollback service
+docker service rollback vijaychowdarykube
+```
+
+```bash
+# Remove service
+docker service rm vijaychowdarykube
+```
+
+```bash
+# Leave worker node
+docker swarm leave
+```
+
+```bash
+# Leave manager node
+docker swarm leave --force
+```
+
+```bash
+# Open application
+http://192.168.56.10:8080
+```
