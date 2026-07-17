@@ -1,0 +1,492 @@
+# Docker Swarm Cluster Setup Using VirtualBox + Vagrant (Step-by-Step)
+
+## Architecture
+
+```text
+Ubuntu Laptop
+│
+├── manager-vm   (Docker Swarm Manager)
+├── worker1-vm   (Docker Swarm Worker)
+└── worker2-vm   (Docker Swarm Worker)
+```
+
+---
+
+# Step 1: Install VirtualBox
+
+Update Ubuntu
+
+```bash
+sudo apt update
+```
+
+Install VirtualBox
+
+```bash
+sudo apt install -y virtualbox
+```
+
+Verify
+
+```bash
+vboxmanage --version
+```
+
+Expected Output
+
+```text
+7.x.x
+```
+
+---
+
+# Step 2: Install Vagrant
+
+### Add HashiCorp GPG Key
+
+```bash
+curl -fsSL https://apt.releases.hashicorp.com/gpg | \
+sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
+```
+
+### Add Repository
+
+```bash
+echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] \
+https://apt.releases.hashicorp.com $(lsb_release -cs) main" | \
+sudo tee /etc/apt/sources.list.d/hashicorp.list
+```
+
+### Install Vagrant
+
+```bash
+sudo apt update
+sudo apt install -y vagrant
+```
+
+Verify
+
+```bash
+vagrant --version
+```
+
+Expected Output
+
+```text
+Vagrant 2.x.x
+```
+
+---
+
+# Step 3: Create Project Folder
+
+```bash
+mkdir docker-swarm-vms
+cd docker-swarm-vms
+```
+
+---
+
+# Step 4: Create Vagrantfile
+
+```bash
+vagrant init
+```
+
+Open
+
+```bash
+nano Vagrantfile
+```
+
+Delete everything and paste:
+
+```ruby
+Vagrant.configure("2") do |config|
+
+  config.vm.box = "ubuntu/jammy64"
+
+  config.vm.define "manager-vm" do |manager|
+    manager.vm.hostname = "manager-vm"
+    manager.vm.network "private_network", ip: "192.168.56.10"
+
+    manager.vm.provider "virtualbox" do |vb|
+      vb.memory = 2048
+      vb.cpus = 2
+    end
+  end
+
+  config.vm.define "worker1-vm" do |worker1|
+    worker1.vm.hostname = "worker1-vm"
+    worker1.vm.network "private_network", ip: "192.168.56.11"
+
+    worker1.vm.provider "virtualbox" do |vb|
+      vb.memory = 1024
+      vb.cpus = 1
+    end
+  end
+
+  config.vm.define "worker2-vm" do |worker2|
+    worker2.vm.hostname = "worker2-vm"
+    worker2.vm.network "private_network", ip: "192.168.56.12"
+
+    worker2.vm.provider "virtualbox" do |vb|
+      vb.memory = 1024
+      vb.cpus = 1
+    end
+  end
+
+end
+```
+
+Save
+
+```text
+CTRL+O
+ENTER
+CTRL+X
+```
+
+---
+
+# Step 5: Create All VMs
+
+```bash
+vagrant up
+```
+
+Check status
+
+```bash
+vagrant status
+```
+
+Expected
+
+```text
+manager-vm running
+worker1-vm running
+worker2-vm running
+```
+
+---
+
+# If KVM Error Comes
+
+```bash
+sudo nano /etc/modprobe.d/blacklist-kvm.conf
+```
+
+Paste
+
+```text
+blacklist kvm
+blacklist kvm_intel
+blacklist kvm_amd
+```
+
+Save
+
+```text
+CTRL+O
+ENTER
+CTRL+X
+```
+
+Update
+
+```bash
+sudo update-initramfs -u
+```
+
+Restart
+
+```bash
+sudo reboot
+```
+
+Verify
+
+```bash
+lsmod | grep kvm
+```
+
+No output means KVM is disabled.
+
+Run
+
+```bash
+cd ~/docker-swarm-vms
+vagrant up
+```
+
+---
+
+# Step 6: Login into Manager
+
+```bash
+vagrant ssh manager-vm
+```
+
+Open another terminal
+
+```bash
+cd ~/docker-swarm-vms
+vagrant ssh worker1-vm
+```
+
+Open another terminal
+
+```bash
+cd ~/docker-swarm-vms
+vagrant ssh worker2-vm
+```
+
+Now you have
+
+```text
+Terminal-1 → Manager
+Terminal-2 → Worker1
+Terminal-3 → Worker2
+```
+
+---
+
+# Step 7: Install Docker (Run on ALL 3 VMs)
+
+```bash
+sudo apt update
+sudo apt install -y docker.io
+sudo systemctl enable docker
+sudo systemctl start docker
+sudo usermod -aG docker $USER
+```
+
+Logout
+
+```bash
+logout
+```
+
+Login again
+
+Manager
+
+```bash
+vagrant ssh manager-vm
+```
+
+Worker1
+
+```bash
+vagrant ssh worker1-vm
+```
+
+Worker2
+
+```bash
+vagrant ssh worker2-vm
+```
+
+Verify
+
+```bash
+docker --version
+```
+
+---
+
+# Step 8: Initialize Swarm (Manager Only)
+
+```bash
+docker swarm init --advertise-addr 192.168.56.10
+```
+
+Output
+
+```text
+Swarm initialized
+
+docker swarm join --token SWMTKN-1-xxxxxxxxxxxxxxxx \
+192.168.56.10:2377
+```
+
+Copy the join command.
+
+---
+
+# Step 9: Join Worker1
+
+Run the copied command
+
+```bash
+docker swarm join --token SWMTKN-1-xxxxxxxx \
+192.168.56.10:2377
+```
+
+Output
+
+```text
+This node joined a swarm as a worker.
+```
+
+---
+
+# Step 10: Join Worker2
+
+Run the same command
+
+```bash
+docker swarm join --token SWMTKN-1-xxxxxxxx \
+192.168.56.10:2377
+```
+
+Output
+
+```text
+This node joined a swarm as a worker.
+```
+
+---
+
+# Step 11: Verify Cluster
+
+Run on Manager
+
+```bash
+docker node ls
+```
+
+Output
+
+```text
+HOSTNAME       STATUS   MANAGER STATUS
+
+manager-vm     Ready    Leader
+worker1-vm     Ready
+worker2-vm     Ready
+```
+
+---
+
+# Step 12: Create Service
+
+```bash
+docker service create \
+--name web \
+--replicas 3 \
+-p 8080:80 \
+nginx
+```
+
+---
+
+# Step 13: Verify Service
+
+```bash
+docker service ls
+```
+
+```bash
+docker service ps web
+```
+
+---
+
+# Step 14: Open Application
+
+Browser
+
+```text
+http://192.168.56.10:8080
+```
+
+Nginx welcome page should appear.
+
+---
+
+# Step 15: Scale Service
+
+```bash
+docker service scale web=5
+```
+
+Verify
+
+```bash
+docker service ps web
+```
+
+---
+
+# Step 16: Promote Worker (Fault Tolerance)
+
+On Manager
+
+```bash
+docker node promote worker1-vm
+```
+
+Verify
+
+```bash
+docker node ls
+```
+
+Output
+
+```text
+manager-vm   Leader
+worker1-vm   Reachable
+worker2-vm   Ready
+```
+
+Now even if the manager stops, the swarm can continue with another manager.
+
+---
+
+# Step 17: Stop VMs
+
+Stop one VM
+
+```bash
+vagrant halt manager-vm
+```
+
+Stop all VMs
+
+```bash
+vagrant halt
+```
+
+---
+
+# Step 18: Delete Everything
+
+```bash
+vagrant destroy -f
+```
+
+---
+
+# Viva Questions
+
+**What is Docker Swarm?**
+Docker Swarm is Docker's native container orchestration platform that manages a cluster of Docker hosts as a single system.
+
+**What is a Manager Node?**
+A manager node controls the swarm, schedules services, and manages worker nodes.
+
+**What is a Worker Node?**
+A worker node runs the containers assigned by the manager.
+
+**Why use Vagrant?**
+Vagrant automates the creation and management of virtual machines.
+
+**Why use VirtualBox?**
+VirtualBox provides virtual machines on a single physical computer.
+
+**What is a Service?**
+A service defines the desired state of containers in the swarm, including the image, number of replicas, and networking configuration.
+
+This guide is suitable as a complete lab manual for creating and testing a Docker Swarm cluster with one manager and two worker nodes.
