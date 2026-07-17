@@ -467,26 +467,3 @@ vagrant halt
 vagrant destroy -f
 ```
 
----
-
-# Viva Questions
-
-**What is Docker Swarm?**
-Docker Swarm is Docker's native container orchestration platform that manages a cluster of Docker hosts as a single system.
-
-**What is a Manager Node?**
-A manager node controls the swarm, schedules services, and manages worker nodes.
-
-**What is a Worker Node?**
-A worker node runs the containers assigned by the manager.
-
-**Why use Vagrant?**
-Vagrant automates the creation and management of virtual machines.
-
-**Why use VirtualBox?**
-VirtualBox provides virtual machines on a single physical computer.
-
-**What is a Service?**
-A service defines the desired state of containers in the swarm, including the image, number of replicas, and networking configuration.
-
-This guide is suitable as a complete lab manual for creating and testing a Docker Swarm cluster with one manager and two worker nodes.
